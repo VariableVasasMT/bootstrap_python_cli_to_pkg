@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mindtickle_cli"
+version = "0.1.0"
+description = "Package installation is complete!"
+authors = [{name = "VariableVasasMT", email = "kritivasas.shukla@mindtickle.com"}]
+dependencies = [
+    "openai>=0.10.2",
+    "requests>=2.25.1",
+    "python-dotenv>=0.15.0",
+    "jinja2",
+    "python-gitlab>=2.10.1"
+]
+
+[project.scripts]
+mtcli = "mindtickle_cli.cli:main"

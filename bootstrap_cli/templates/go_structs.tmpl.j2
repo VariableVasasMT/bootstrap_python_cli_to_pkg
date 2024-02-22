@@ -1,0 +1,33 @@
+type Database struct {
+    DB *gorm.DB
+}
+
+{% for main_table in main_tables %}
+type {{ main_table.name }} struct {
+    {% for field in main_table.fields %}
+    {{ field.name }} {{ map_type(field.type) }} `gorm:"column:{{ field.name|lower }}" json:"{{ field.name|lower }}"`
+    {% endfor %}
+}
+
+{% endfor %}
+
+{% for outbox_table in outbox_tables %}
+type {{ outbox_table.name }} struct {
+    {% for field in outbox_table.fields %}
+    {% if 'reference' in field %}
+    {% set ref_table, ref_field = field.reference.split('.') %}
+    {{ field.name }} {{ main_table_fields[ref_table][ref_field] }}
+    {% else %}
+    {{ field.name }} {{ map_type(field.type) }}
+    {% endif %}
+    {% endfor %}
+}
+
+{% endfor %}
+
+SELECT
+       {%for field in select%}
+    FROM USER.SODP.USER_UPDATED
+    WHERE
+        USER_ID IS NOT NULL AND LENGTH(TRIM(USER_ID)) > 0
+        AND USER_ID != '-1'

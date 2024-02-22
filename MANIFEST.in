@@ -1,0 +1,2 @@
+include mindtickle_cli/templates/*.j2
+include ascii_image.txt

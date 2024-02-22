@@ -1,0 +1,16 @@
+{% for main_table in main_tables %}
+func (db *Database) Create{{ main_table.name }}(record *{{ main_table.name }}) error {
+    if err := db.DB.Create(record).Error; err != nil {
+        return err
+    }
+    return db.writeTo{{ main_table.name }}Outbox(record)
+}
+
+func (db *Database) Update{{ main_table.name }}(record *{{ main_table.name }}) error {
+    if err := db.DB.Save(record).Error; err != nil {
+        return err
+    }
+    return db.writeTo{{ main_table.name }}Outbox(record)
+}
+
+{% endfor %}

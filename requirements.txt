@@ -1,0 +1,6 @@
+openai>=0.10.2
+requests>=2.25.1
+python-dotenv>=0.15.0
+jinja2
+python-gitlab>=2.10.1
+numpy==1.26.4

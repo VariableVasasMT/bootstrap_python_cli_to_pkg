@@ -1,0 +1,107 @@
+package models
+
+import (
+    "time"
+    "github.com/MindTickle/mt-content-go-utils/sqlStore"
+    "github.com/MindTickle/mt-go-logger/logger"
+)
+
+/******* DB Layer Start *******/
+
+type {{class_name}} struct {
+    sqlStore *sqlStore.SqlStorageClient
+}
+
+type SqlStoreConfig struct {
+	DefaultTenantId string
+	Project         string
+	Env             string
+	Host            string
+	Port            string
+	Namespace       string
+}
+
+func NewSqlStoreClient(config SqlStoreConfig, logger *logger.LoggerImpl) (*UserProductOutbox, error) {
+	timeout := 5
+	sqlStoreConfig := sqlStore.SQLStoreConfig(config)
+	healthCheckClient, err := sqlStore.NewSqlStoreHealthChecks(&sqlStoreConfig, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	sqlStoreClient, err := sqlStore.NewSqlStoreClient(&sqlStoreConfig, timeout)
+	if err != nil {
+		return nil, err
+	}
+
+	sqlStore := sqlStore.NewSqlStorageClient(&sqlStoreConfig, sqlStoreClient, healthCheckClient, logger)
+    return &{{class_name}}{ &sqlStore }, nil
+}
+
+/******** DB Layer End ********/
+
+{% for main_table in main_tables %}
+type {{ main_table.name }} struct {
+
+    {% for field in main_table.fields -%}
+    {{ field.name }} {{ map_type(field.type) }}
+    {% endfor %}
+}
+{% endfor %}
+
+{% for outbox_table in outbox_tables %}
+type {{ outbox_table.name }} struct {
+
+    {% for field in outbox_table.fields -%}
+    {% if 'reference' in field -%}
+    {% set ref_table, ref_field = field.reference.split('.') -%}
+    {{ field.name }} {{ main_table_fields[ref_table][ref_field] }}
+    {% else -%}
+    {{ field.name }} {{ map_type(field.type) }}
+    {% endif -%}
+    {% endfor %}
+}
+{% endfor -%}
+
+{% for main_table in main_tables %}
+func (db *{{class_name}}) Insert{{ main_table.name }}(ctx context.Context, rows []*RowVal, table string, tenantId int64) error {
+    if err := db.DB.Create(record).Error; err != nil {
+        return err
+    }
+    return db.writeTo{{ main_table.name }}Outbox(record)
+}
+
+func (db *{{class_name}}) Update{{ main_table.name }}(record *{{ main_table.name }}) error {
+    if err := db.DB.Save(record).Error; err != nil {
+        return err
+    }
+    return db.writeTo{{ main_table.name }}Outbox(record)
+}
+{% endfor -%}
+
+{% for outbox_table in outbox_tables -%}
+func (db *{{class_name}}) writeTo{{ outbox_table.name }}(record *{{ outbox_table.referenceTable }}) (*{{ outbox_table.name }}, error) {
+    outboxRecord := &{{ outbox_table.name }}{}
+    outboxRecord.{{ outbox_table.referenceTable }}ID = record.ID
+
+    // Fetch fields dynamically if not present in the main record
+    {% for ref_table, ref_field in fetch_requirements[outbox_table.name] -%}
+    if record.{{ ref_field }} == {{ default_value_for_type(main_table_fields[ref_table][ref_field]) }} {
+        fetchedValue, err := db.Fetch{{ ref_field }}From{{ ref_table }}(record.ID)
+        if err != nil {
+            return nil, err
+        }
+        outboxRecord.{{ ref_field }} = fetchedValue
+    } else {
+        outboxRecord.{{ ref_field }} = record.{{ ref_field }}
+    }
+    {% endfor -%}
+
+    if err := db.DB.Create(outboxRecord).Error; err != nil {
+        return nil, err
+    }
+    return outboxRecord, nil
+}
+{% endfor -%}
+
+

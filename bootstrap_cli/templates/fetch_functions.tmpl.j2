@@ -1,0 +1,14 @@
+{% for outbox_table in outbox_tables %}
+    {% for field in outbox_table.fields %}
+        {% if 'reference' in field %}
+            {% set ref_table, ref_field = field.reference.split('.') %}
+            func (db *Database) Fetch{{ ref_field }}From{{ ref_table }}(id int) ({{ map_type(main_table_fields[ref_table][ref_field]) }}, error) {
+                var record {{ ref_table }}
+                if err := db.DB.Select("{{ ref_field }}").Where("id = ?", id).First(&record).Error; err != nil {
+                    return {{ default_value_for_type(main_table_fields[ref_table][ref_field]) }}, err
+                }
+                return record.{{ ref_field }}, nil
+            }
+        {% endif %}
+    {% endfor %}
+{% endfor %}
